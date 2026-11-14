@@ -12,14 +12,23 @@ stand out.
 
 The challenge asks us to test it on Barnard's Star, Epsilon Indi B, WISE 0855, RW Aurigae and R Draconis.
 
-## Current status (November 14, afternoon)
+## Current status (November 15, early morning, Seoul time)
 
 - Done and checked on real data: name lookup with proper motion, archive query, cutout download with cache,
   visit stacking, animation, difference and stacked views, URL parameters, five test targets saved in
-  `data/showcase/`, contamination flags near the target, Gaia DR3 overlay, spectrum on the fly. 36 unit tests pass.
+  `data/showcase/` for all six detectors, contamination flags near the target, Gaia DR3 overlay, spectrum on
+  the fly. 53 unit tests pass.
+- New web viewer in `docs/` (plain HTML, CSS and JavaScript): plays the saved test targets in the browser with
+  blink, zoom, a saturation overlay, the measured shift next to the catalogue prediction, brightness over time,
+  and the same field in 2MASS, WISE and DSS. Checked locally on all five targets; not public until GitHub Pages
+  is switched on for the repository.
+- New live-query service in `api/` for positions that are not saved. Checked locally on Luhman 16 (about 80
+  seconds); not hosted yet. Until it is, the web viewer hands new positions to the Streamlit app.
+- Fixed: saturated stars were shown with a brightness of 0 mJy. They are now measured in a ring outside the core
+  (rough: a steady star still differs by about 20% between visits).
 - Deployed: https://dokdo-gull.streamlit.app (Streamlit Community Cloud, Python 3.12). Saved test targets and a live archive query
   both work there.
-- Not done: demo, submission text, fixing the team's Local Event mismatch.
+- Not done: demo, submission text, getting every team member registered for the Universal Event.
 - Change from the original design: TRANSIENT, SUR_ERROR, OUTLIER, STREAK and SNOWBALL pixels are no longer
   masked. On bright stars SPHEREx sets them around the core, and masking them cut a hole in Barnard's Star.
   The median over each visit removes cosmic rays instead.

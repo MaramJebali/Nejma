@@ -10,6 +10,8 @@ from scipy.ndimage import maximum_filter
 
 BACKGROUND = 24  # grey level for pixels with no data
 MARKER = (255, 170, 40)
+GAIA = (90, 200, 255)
+GAIA_FAST = (255, 80, 200)
 
 
 def display_limits(arrays: list[np.ndarray], low_pct: float = 1.0, high_pct: float = 99.7) -> tuple[float, float]:
@@ -76,11 +78,23 @@ def _font(size: int):
         return ImageFont.load_default()
 
 
-def compose(gray: np.ndarray, label: str, scale: int, marker: tuple[float, float] | None = None, marker_radius_px: float = 3.0) -> Image.Image:
+def compose(
+    gray: np.ndarray,
+    label: str,
+    scale: int,
+    marker: tuple[float, float] | None = None,
+    marker_radius_px: float = 3.0,
+    overlay: list[tuple[float, float, bool]] | None = None,
+) -> Image.Image:
     """Enlarge one frame (north up, east left), mark the expected target position and add a caption bar."""
     image = Image.fromarray(np.flipud(gray), mode="L").convert("RGB")  # FITS rows go up, image rows go down
     image = image.resize((image.width * scale, image.height * scale), Image.NEAREST)
     draw = ImageDraw.Draw(image)
+    rows = gray.shape[0]
+    for x, y, fast in overlay or []:
+        cx, cy = (x + 0.5) * scale, (rows - 1 - y + 0.5) * scale
+        r = (3.5 if fast else 2.5) * scale
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=GAIA_FAST if fast else GAIA, width=2 if fast else 1)
     if marker is not None:
         # Two ticks, east (left) and north (top) of the position, like a finder chart: they stay visible
         # next to bright stars, where a circle would disappear in the glare.

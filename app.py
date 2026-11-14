@@ -7,18 +7,11 @@ import base64
 import numpy as np
 import streamlit as st
 
-from spherex import render
+from app_presets import PRESETS
+from spherex import gaia, render, showcase
 from spherex.archive import DETECTORS, get_cutouts, is_cached, query_images
 from spherex.process import EXCLUDE_FLAGS, build_frames, plan_visits
 from spherex.resolve import Target, mjd_to_year, resolve
-
-PRESETS = {  # label -> (what is looked up, detector that shows it best)
-    "Barnard's Star": ("Barnard's Star", 2),
-    "Epsilon Indi B (brown dwarfs)": ("eps Ind B", 5),
-    "WISE 0855-0714 (coldest brown dwarf)": ("WISE J085510.83-071442.5", 6),
-    "RW Aurigae (variable star)": ("RW Aur", 2),
-    "R Draconis (variable star)": ("R Dra", 2),
-}
 FOVS = [0.05, 0.1, 0.2, 0.3]  # degrees
 MODES = {"animation": "Animation", "difference": "Difference", "stack": "All visits stacked"}
 MAX_PER_VISIT = 12
@@ -65,6 +58,7 @@ def submit() -> None:
     text = ss.target_text.strip()
     if not text:
         return
+    ss.live = False
     ss.request = (text, ss.fov, ss.band)
     params = {"target": text, "fov": f"{ss.fov:g}", "band": str(ss.band), "mode": ss.mode}
     st.query_params.from_dict(params)
@@ -75,12 +69,22 @@ def cached_resolve(text: str) -> Target:
     return resolve(text)
 
 
-def get_frames(target: Target, fov: float, band: int):
-    """Query, download (with a progress bar) and stack. Results are kept for the session."""
-    key = (round(target.ra, 5), round(target.dec, 5), fov, band)
+def get_frames(target: Target, fov: float, band: int, text: str = "", live: bool = False):
+    """Query, download (with a progress bar) and stack. Results are kept for the session.
+
+    Test targets come from data/showcase/ unless `live` is set, so they play without waiting for IRSA.
+    """
+    key = (round(target.ra, 5), round(target.dec, 5), fov, band, live)
     cache = ss.setdefault("frames_cache", {})
     if key in cache:
         return cache[key]
+    stored = showcase.showcase_path(text, fov, band)
+    if not live and text and stored.exists():
+        frames, wcs, info = showcase.load(stored)
+        result = {"frames": frames, "wcs": wcs, "n_records": info["n_records"], "skipped": [None] * info["n_skipped"],
+                  "failures": [None] * info["n_failures"], "showcase": info["built"]}
+        cache[key] = result
+        return result
     with st.spinner("Searching the SPHEREx archive at IRSA (this can take up to a minute)..."):
         records = query_images(target.ra, target.dec, band)
     visits, skipped = plan_visits(records, max_per_visit=MAX_PER_VISIT)
@@ -98,7 +102,7 @@ def get_frames(target: Target, fov: float, band: int):
         bar.empty()
     with st.spinner("Aligning and stacking images..."):
         frames, wcs = build_frames(visits, cutouts, target.ra, target.dec, fov)
-    result = {"frames": frames, "wcs": wcs, "n_records": len(records), "skipped": skipped, "failures": failures}
+    result = {"frames": frames, "wcs": wcs, "n_records": len(records), "skipped": skipped, "failures": failures, "showcase": None}
     if len(cache) >= 4:
         cache.pop(next(iter(cache)))
     cache[key] = result
@@ -176,7 +180,7 @@ except Exception as exc:
     st.stop()
 
 try:
-    result = get_frames(target, fov, band)
+    result = get_frames(target, fov, band, text, live=ss.get("live", False))
 except Exception as exc:
     st.error(f"The SPHEREx archive did not answer ({type(exc).__name__}). Please try again in a minute.")
     st.stop()
@@ -190,6 +194,12 @@ motion = (
 )
 st.caption(f"RA {target.ra:.5f}°, Dec {target.dec:+.5f}° (2026.0). {motion}Detector D{band}, field {fov * 60:.0f} arcmin.")
 
+if result["showcase"]:
+    st.caption(f"Saved result from {result['showcase']}, so it opens instantly.")
+    if st.button("Check the archive for newer images"):
+        ss.live = True
+        st.rerun()
+
 if result["failures"]:
     st.warning(f"{len(result['failures'])} image(s) could not be downloaded and were left out.")
 if result["skipped"]:
@@ -202,10 +212,31 @@ controls = st.columns([3, 2, 2])
 mode = controls[0].radio("View", list(MODES), key="mode", format_func=MODES.get, horizontal=True)
 frame_ms = controls[1].slider("Frame time (ms)", 200, 2000, 700, step=100)
 show_marker = controls[2].checkbox("Mark expected position", value=True, help="Orange ticks: where the target should be on each date, from its catalogue proper motion.")
+show_gaia = controls[2].checkbox(
+    "Gaia DR3 stars",
+    value=False,
+    help="Blue circles: Gaia DR3 stars moved to each visit's date. Pink: stars moving faster than 0.1\"/yr. "
+    "A SPHEREx source with no circle is not in Gaia, which is worth a closer look (cold brown dwarfs are invisible to Gaia).",
+)
 
 arrays = [render.fill_small_holes(f.data) for f in frames]
 scale = render.display_scale(arrays[0].shape[0])
 markers = marker_positions(target, frames, wcs) if show_marker else [None] * len(frames)
+overlays = [None] * len(frames)
+if show_gaia:
+    try:
+        g_limit = controls[2].slider("Gaia stars brighter than G =", 10.0, 21.0, 16.0, step=0.5)
+        with st.spinner("Loading Gaia DR3 stars (about 30 seconds the first time)..."):
+            stars = gaia.query_gaia(target.ra, target.dec, fov * 0.75)
+        shown = [s for s in stars if s.g_mag <= g_limit or s.is_fast]  # fast movers are always shown
+        overlays = [gaia.pixel_positions(shown, wcs, mjd_to_year(f.mjd_mid), arrays[0].shape) for f in frames]
+        n_fast = sum(s.is_fast for s in stars)
+        st.caption(
+            f"Showing {len(shown)} of {len(stars)} Gaia DR3 stars in the field (G <= {g_limit:g}, plus all fast movers). "
+            f"{n_fast} move faster than 0.1\"/yr."
+        )
+    except Exception as exc:
+        st.warning(f"Gaia stars could not be loaded ({type(exc).__name__}).")
 
 if mode == "stack":
     with np.errstate(all="ignore"):
@@ -220,16 +251,16 @@ elif mode == "difference":
         diffs = render.difference_frames(arrays)[1:]
         limit = render.difference_limit(diffs)
         images = [
-            render.compose(render.to_diverging(d, limit), f"{f.date} minus {frames[0].date}", scale, m, MARKER_RADIUS_PX)
-            for d, f, m in zip(diffs, frames[1:], markers[1:])
+            render.compose(render.to_diverging(d, limit), f"{f.date} minus {frames[0].date}", scale, m, MARKER_RADIUS_PX, o)
+            for d, f, m, o in zip(diffs, frames[1:], markers[1:], overlays[1:])
         ]
         show_gif(images, frame_ms)
         st.caption("White: brighter than on the first visit. Black: fainter. A moving star leaves a black and white pair.")
 else:
     low, high = render.display_limits(arrays)
     images = [
-        render.compose(render.to_gray(a, low, high), frame_label(f), scale, m, MARKER_RADIUS_PX)
-        for a, f, m in zip(arrays, frames, markers)
+        render.compose(render.to_gray(a, low, high), frame_label(f), scale, m, MARKER_RADIUS_PX, o)
+        for a, f, m, o in zip(arrays, frames, markers, overlays)
     ]
     show_gif(images, frame_ms)
     st.caption("North is up, east is left. All frames use the same brightness scale.")
@@ -255,5 +286,5 @@ with st.expander("Visits used", expanded=True):
 
 st.caption(
     "Data: NASA SPHEREx spectral images from the NASA/IPAC Infrared Science Archive (IRSA). "
-    "Names resolved with CDS Sesame/SIMBAD. Code: https://github.com/cafe2913/dokdo-gull"
+    "Gaia DR3 (ESA) via IRSA. Names resolved with CDS Sesame/SIMBAD. Code: https://github.com/cafe2913/dokdo-gull"
 )

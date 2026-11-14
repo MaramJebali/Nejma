@@ -111,19 +111,27 @@ def get_frames(target: Target, fov: float, band: int, text: str = "", live: bool
     return result
 
 
-def other_detector_points(target: Target, fov: float, band: int) -> list:
-    """Spectrum points from the five detectors not on screen (4 images per visit each, to keep it quick)."""
-    key = ("spectrum", round(target.ra, 5), round(target.dec, 5), band)
+def other_detector_points(target: Target, fov: float, band: int, text: str, live: bool) -> list:
+    """Spectrum points from the five detectors not on screen.
+
+    Saved test targets are read from data/showcase/; anything else is downloaded with 4 images per visit
+    per detector, to keep it quick.
+    """
+    key = ("spectrum", round(target.ra, 5), round(target.dec, 5), band, live)
     if key in ss:
         return ss[key]
     others = [d for d in DETECTORS if d != band]
     bar = st.progress(0.0, text="Measuring the other detectors...")
     points = []
     for i, det in enumerate(others):
-        visits, _ = plan_visits(query_images(target.ra, target.dec, det), max_per_visit=4)
-        wanted = [r for v in visits for r in v.records]
-        cutouts, _ = get_cutouts(wanted, target.ra, target.dec, fov * 1.5)
-        points += spectrum.measure_all(cutouts, target)
+        stored = showcase.showcase_path(text, fov, det)
+        if not live and stored.exists():
+            points += showcase.load(stored)[2]["points"]
+        else:
+            visits, _ = plan_visits(query_images(target.ra, target.dec, det), max_per_visit=4)
+            wanted = [r for v in visits for r in v.records]
+            cutouts, _ = get_cutouts(wanted, target.ra, target.dec, fov * 1.5)
+            points += spectrum.measure_all(cutouts, target)
         bar.progress((i + 1) / len(others), text=f"Measured detector D{det} ({i + 1} of {len(others)})")
     bar.empty()
     ss[key] = points
@@ -320,7 +328,7 @@ st.subheader("Spectrum at the target")
 points = list(result.get("points") or [])
 if st.toggle("Add the other five detectors (0.75 to 5 um, downloads about 60 more images)", key="all_detectors"):
     try:
-        points += other_detector_points(target, fov, band)
+        points += other_detector_points(target, fov, band, text, ss.get("live", False))
     except Exception as exc:
         st.warning(f"Some detectors could not be measured ({type(exc).__name__}).")
 if points:

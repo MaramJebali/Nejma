@@ -326,7 +326,10 @@ else:
 
 st.subheader("Spectrum at the target")
 points = list(result.get("points") or [])
-if st.toggle("Add the other five detectors (0.75 to 5 um, downloads about 60 more images)", key="all_detectors"):
+all_saved = not ss.get("live", False) and all(
+    showcase.showcase_path(text, fov, d).exists() for d in DETECTORS if d != band)
+cost = "saved, opens instantly" if all_saved else "downloads about 60 more images"
+if st.toggle(f"Add the other five detectors (0.75 to 5 um, {cost})", key="all_detectors"):
     try:
         points += other_detector_points(target, fov, band, text, ss.get("live", False))
     except Exception as exc:

@@ -2,5 +2,6 @@ streamlit>=1.40
 numpy>=1.26
 astropy>=6.0
 reproject>=0.14
+scipy>=1.11
 requests>=2.31
 pillow>=10.1

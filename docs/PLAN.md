@@ -12,10 +12,16 @@ stand out.
 
 The challenge asks us to test it on Barnard's Star, Epsilon Indi B, WISE 0855, RW Aurigae and R Draconis.
 
-## Current status (November 14)
+## Current status (November 14, afternoon)
 
-- Done: public repository, a starter Streamlit app that runs locally, README, license, this plan.
-- Not started: everything under "Build order" from step 3 onward. There is no data or image code yet.
+- Done and checked on real data: name lookup with proper motion, archive query, cutout download with cache,
+  visit stacking, animation, difference and stacked views, URL parameters, five test targets saved in
+  `data/showcase/`, contamination flags near the target, Gaia DR3 overlay, spectrum on the fly. 36 unit tests pass.
+- Not done: public deployment (Streamlit Community Cloud), demo, submission text, fixing the team's
+  Local Event mismatch.
+- Change from the original design: TRANSIENT, SUR_ERROR, OUTLIER, STREAK and SNOWBALL pixels are no longer
+  masked. On bright stars SPHEREx sets them around the core, and masking them cut a hole in Barnard's Star.
+  The median over each visit removes cosmic rays instead.
 
 ## Team decisions
 

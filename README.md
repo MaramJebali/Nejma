@@ -3,6 +3,8 @@
 A public web tool that shows how a patch of sky changes over time in images from NASA's SPHEREx mission.
 Built for the 2026 NASA Space Apps Challenge, ["Planet X and SPHEREx"](https://www.spaceappschallenge.org/2026/challenges/planet-x-and-spherex/).
 
+**Try it: https://dokdo-gull.streamlit.app** (for example [Barnard's Star, difference view](https://dokdo-gull.streamlit.app/?target=Barnard%27s%20Star&fov=0.1&band=2&mode=difference)).
+
 Enter a sky position (Right Ascension and declination) or an object name. The tool finds every SPHEREx
 spectral image that covers that position, stacks the images taken during each visit, and plays the visits
 back like a short video so that moving or changing objects stand out.

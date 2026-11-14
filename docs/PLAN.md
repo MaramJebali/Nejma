@@ -17,8 +17,9 @@ The challenge asks us to test it on Barnard's Star, Epsilon Indi B, WISE 0855, R
 - Done and checked on real data: name lookup with proper motion, archive query, cutout download with cache,
   visit stacking, animation, difference and stacked views, URL parameters, five test targets saved in
   `data/showcase/`, contamination flags near the target, Gaia DR3 overlay, spectrum on the fly. 36 unit tests pass.
-- Not done: public deployment (Streamlit Community Cloud), demo, submission text, fixing the team's
-  Local Event mismatch.
+- Deployed: https://dokdo-gull.streamlit.app (Streamlit Community Cloud, Python 3.12). Saved test targets and a live archive query
+  both work there.
+- Not done: demo, submission text, fixing the team's Local Event mismatch.
 - Change from the original design: TRANSIENT, SUR_ERROR, OUTLIER, STREAK and SNOWBALL pixels are no longer
   masked. On bright stars SPHEREx sets them around the core, and masking them cut a hole in Barnard's Star.
   The median over each visit removes cosmic rays instead.

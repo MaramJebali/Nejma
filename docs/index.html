@@ -1,0 +1,185 @@
+<!doctype html>
+<!-- AI-generated code: written with Claude (Anthropic) at the team's direction for NASA Space Apps 2026. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dokdo Gull | SPHEREx time-lapse viewer</title>
+<meta name="description" content="Enter a sky position and watch NASA's SPHEREx images of it play back in time, so that anything that moved or changed stands out.">
+<meta name="generator" content="AI-generated code (Claude, Anthropic), written at the team's direction for NASA Space Apps 2026">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <a class="wordmark" href="./">Dokdo Gull</a>
+    <p class="tagline">See what moved or changed in NASA's SPHEREx sky images.</p>
+  </div>
+  <form id="search" class="search" role="search">
+    <div class="field grow">
+      <label for="q">Object name, or Right Ascension and declination</label>
+      <input id="q" name="q" type="text" autocomplete="off" spellcheck="false"
+             placeholder="R Dra   or   248.167 66.755   or   16:32:40 +66:45:18">
+    </div>
+    <div class="field">
+      <label for="fov">Field of view</label>
+      <select id="fov" name="fov">
+        <option value="0.05">3 arcmin</option>
+        <option value="0.1" selected>6 arcmin</option>
+        <option value="0.2">12 arcmin</option>
+        <option value="0.3">18 arcmin</option>
+      </select>
+    </div>
+    <button type="submit" class="primary">Look</button>
+  </form>
+</header>
+
+<main>
+  <div id="notice" class="notice" role="status" hidden></div>
+
+  <section class="bench" aria-label="Time-lapse viewer">
+    <div class="plate-column">
+      <div class="plate" id="plate">
+        <canvas id="sky" tabindex="0" aria-label="SPHEREx image of the chosen field. Scroll to zoom, drag to move, double-click to reset."></canvas>
+        <button id="bigplay" class="bigplay" type="button" hidden>Play the time-lapse</button>
+        <div id="hover" class="hover" hidden></div>
+      </div>
+      <p id="caption" class="caption">Loading the images…</p>
+
+      <div class="transport">
+        <button id="prev" type="button" aria-label="Previous visit">Back</button>
+        <button id="play" type="button" class="primary">Pause</button>
+        <button id="next" type="button" aria-label="Next visit">Forward</button>
+        <label class="inline" for="speed">Time per visit
+          <input id="speed" type="range" min="300" max="2000" step="100" value="700">
+        </label>
+        <button id="reset" type="button">Reset zoom</button>
+      </div>
+
+      <ol id="strip" class="strip" aria-label="Visits"></ol>
+    </div>
+
+    <div class="readout">
+      <h1 id="name">&nbsp;</h1>
+      <p id="about" class="about"></p>
+      <dl id="facts" class="facts"></dl>
+
+      <div class="control">
+        <span class="control-name" id="view-label">View</span>
+        <div class="segments" role="group" aria-labelledby="view-label">
+          <button type="button" data-mode="play" aria-pressed="true">Time-lapse</button>
+          <button type="button" data-mode="blink" aria-pressed="false">Blink two</button>
+          <button type="button" data-mode="diff" aria-pressed="false">Difference</button>
+          <button type="button" data-mode="stack" aria-pressed="false">All stacked</button>
+        </div>
+        <p id="mode-help" class="help"></p>
+        <div id="compare" class="compare" hidden>
+          <label class="inline" for="ref">Compare with
+            <select id="ref"></select>
+          </label>
+        </div>
+      </div>
+
+      <div class="control">
+        <span class="control-name" id="band-label">Detector, by wavelength</span>
+        <div id="ruler" class="ruler" role="group" aria-labelledby="band-label"></div>
+        <div class="ruler-scale" aria-hidden="true"><span>0.75 µm</span><span>5.0 µm</span></div>
+      </div>
+
+      <div class="control">
+        <span class="control-name">Mark on the image</span>
+        <label class="check"><input id="ov-marker" type="checkbox" checked> <span class="swatch amber"></span>Expected position, from the catalogue motion</label>
+        <label class="check"><input id="ov-gaia" type="checkbox"> <span class="swatch gaia"></span>Gaia DR3 stars, moved to each date</label>
+        <div id="gaia-more" class="sub" hidden>
+          <label class="inline" for="gmag">Show stars brighter than G = <output id="gmag-out">16</output>
+            <input id="gmag" type="range" min="10" max="21" step="0.5" value="16">
+          </label>
+          <p class="help"><span class="swatch fast"></span>Pink: faster than 0.1″ per year. A SPHEREx source with no circle is not in Gaia.</p>
+        </div>
+        <label class="check"><input id="ov-sat" type="checkbox"> <span class="swatch sat"></span>Saturated pixels (too bright to measure)</label>
+      </div>
+
+      <div class="control">
+        <label class="inline wide" for="gain">Brightness
+          <input id="gain" type="range" min="-1" max="1" step="0.05" value="0">
+        </label>
+        <label class="check"><input id="smooth" type="checkbox" checked> Smooth the pixels</label>
+        <button id="copy" type="button">Copy a link to this view</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="band-section" aria-labelledby="h-charts">
+    <h2 id="h-charts">Spectrum and brightness over time</h2>
+    <div class="charts">
+      <figure>
+        <canvas id="spectrum" class="chart"></canvas>
+        <figcaption id="spectrum-note"></figcaption>
+      </figure>
+      <figure>
+        <canvas id="lightcurve" class="chart"></canvas>
+        <figcaption id="lightcurve-note"></figcaption>
+      </figure>
+    </div>
+    <div id="tip" class="tip" hidden></div>
+  </section>
+
+  <section class="band-section" aria-labelledby="h-else">
+    <h2 id="h-else">The same sky from other telescopes</h2>
+    <div class="elsewhere">
+      <div id="aladin" class="aladin"></div>
+      <div class="elsewhere-side">
+        <label class="inline" for="survey">Survey
+          <select id="survey">
+            <option value="https://irsa.ipac.caltech.edu/data/hips/CDS/2MASS/Color">2MASS, near-infrared (1997 to 2001)</option>
+            <option value="https://irsa.ipac.caltech.edu/data/hips/CDS/AllWISE/RGB-W4-W2-W1">WISE, mid-infrared (2010)</option>
+            <option value="https://irsa.ipac.caltech.edu/data/hips/CDS/DSS2/color">Digitized Sky Survey, visible light (1980s to 1990s)</option>
+          </select>
+        </label>
+        <p class="help">The orange circle marks where the object is in the SPHEREx images. These surveys were taken years earlier, so a fast-moving object sits somewhere else in them, and an object too cold or too faint for them is missing.</p>
+        <p class="help">Survey images are served by NASA/IPAC IRSA. Sky atlas software: Aladin Lite, CDS, Strasbourg Observatory.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band-section" aria-labelledby="h-targets">
+    <h2 id="h-targets">Test targets from the challenge</h2>
+    <ul id="gallery" class="gallery"></ul>
+  </section>
+
+  <section class="band-section" aria-labelledby="h-visits">
+    <h2 id="h-visits">Visits used</h2>
+    <div class="table-wrap"><table id="visits"></table></div>
+    <p id="visits-note" class="help"></p>
+  </section>
+
+  <section class="band-section about-data" aria-labelledby="h-how">
+    <h2 id="h-how">How the images are made</h2>
+    <ol class="steps">
+      <li>The NASA/IPAC Infrared Science Archive (IRSA) lists every SPHEREx spectral image that covers the position. No data release is named in the query, so new images appear here as they are published.</li>
+      <li>A small cutout around the position is taken from each image. The zodiacal light model that ships with the image and the remaining background are subtracted, and broken pixels are left out.</li>
+      <li>Images taken within the same visit are aligned on a north-up grid of 3″ pixels and combined with a median, one detector at a time, so every visit covers the same wavelengths.</li>
+      <li>Each image sees the target at its own wavelength. Measuring the target in every image and plotting brightness against that wavelength gives the spectrum.</li>
+    </ol>
+    <p class="help">Every number on this page is either measured from the SPHEREx images or taken from a catalogue, and says which.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Data: NASA SPHEREx spectral images from the NASA/IPAC Infrared Science Archive (IRSA). Gaia DR3 (ESA) through IRSA. Names and motions from SIMBAD through CDS Sesame.</p>
+  <p>Built for the 2026 NASA Space Apps Challenge, “Planet X and SPHEREx”. Code: <a href="https://github.com/cafe2913/dokdo-gull">github.com/cafe2913/dokdo-gull</a>. The code was written with AI assistance (Claude, Anthropic) at the team's direction.</p>
+</footer>
+
+<script src="app.js" defer></script>
+<!-- Aladin Lite (CDS, Strasbourg Observatory; LGPL-3.0) draws the other surveys. The page works without it. -->
+<script type="module">
+  import A from 'https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js';
+  window.A = A;
+  window.dispatchEvent(new Event('aladin-ready'));
+</script>
+</body>
+</html>

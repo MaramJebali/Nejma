@@ -1,0 +1,8 @@
+# The live-query service: the same science libraries as the Streamlit app, plus a small web server.
+fastapi>=0.110
+uvicorn>=0.29
+numpy>=1.26
+astropy>=6.0
+reproject>=0.14
+scipy>=1.11
+requests>=2.31

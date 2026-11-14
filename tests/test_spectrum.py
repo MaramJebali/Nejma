@@ -44,5 +44,23 @@ def test_saturation_is_reported():
     assert measure(_cutout(100.0, saturate=True), 150.0, 20.0).saturated
 
 
+def test_empty_centre_gives_no_value_instead_of_zero():
+    cutout = _cutout(100.0, saturate=True)
+    cutout.image[18:23, 18:23] = np.nan  # the core of a saturated star has no value at all
+    point = measure(cutout, 150.0, 20.0)
+    assert np.isnan(point.flux_mjy) and point.saturated
+
+
+def test_ring_measures_light_outside_the_core():
+    cutout = _cutout(0.0)
+    yy, xx = np.mgrid[0:41, 0:41]
+    r = np.hypot(xx - 20, yy - 20)
+    ring = (r >= 2.5) & (r <= 4.5)
+    cutout.image[ring] += 5.0
+    point = measure(cutout, 150.0, 20.0)
+    pixel_sr = (6.0 / 3600 * np.pi / 180) ** 2
+    assert point.ring_mjy == pytest.approx(5.0 * ring.sum() * pixel_sr * 1e9, rel=0.02)
+
+
 def test_off_image_returns_none():
     assert measure(_cutout(100.0), 151.0, 20.0) is None

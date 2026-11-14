@@ -3,8 +3,22 @@ import numpy as np
 import pytest
 from astropy.wcs import WCS
 
-from spherex.archive import ImageRecord
-from spherex.process import flag_mask, group_visits, plan_visits, target_grid, thin, to_grid
+from spherex.archive import Cutout, ImageRecord
+from spherex.process import flag_mask, group_visits, plan_visits, saturated_pixels, target_grid, thin, to_grid
+
+
+def test_saturated_pixels_include_the_empty_core():
+    image = np.ones((9, 9), dtype=np.float32)
+    image[4, 4] = np.nan  # empty centre of a saturated star
+    image[0, 0] = np.nan  # an unrelated empty pixel
+    flags = np.zeros((9, 9), dtype=np.int32)
+    flags[3:6, 3:6] = 2
+    flags[4, 4] = 0  # the empty centre itself carries no flag
+    cutout = Cutout(uri="u", detector=2, mjd=61000.0, image=image, zodi=np.zeros_like(image),
+                    variance=np.ones_like(image), flags=flags, header={}, flag_bits={"OVERFLOW": 2},
+                    wavelength_um=1.3, bandwidth_um=0.03)
+    mask = saturated_pixels(cutout)
+    assert mask[4, 4] and mask[3, 3] and not mask[0, 0] and mask.sum() == 9
 
 
 def test_group_visits_splits_on_gaps():

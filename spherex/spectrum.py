@@ -9,12 +9,19 @@ import numpy as np
 from astropy.wcs.utils import proj_plane_pixel_area
 
 from .archive import Cutout
-from .process import clean_image
+from .process import SATURATION_FLAGS, clean_image, saturated_pixels  # noqa: F401  (SATURATION_FLAGS is re-exported)
 from .resolve import Target, mjd_to_year
 
 APERTURE_PX = 2.0  # native pixels (about 12")
 ANNULUS_PX = (4.0, 7.0)
-SATURATION_FLAGS = ("OVERFLOW",)
+MIN_APERTURE_COVERAGE = 0.8  # below this the centre is mostly empty (saturated) and no brightness is reported
+
+# For stars too bright to measure at the centre: the light in a ring outside the saturated core rises and falls
+# with the star, so it shows changes between visits. Checked on Barnard's Star (which is steady): the ring value
+# still wanders by roughly 20% from visit to visit, so only larger changes mean anything.
+RING_PX = (2.5, 4.5)
+RING_BACKGROUND_PX = (12.0, 16.0)
+MIN_RING_COVERAGE = 0.7
 
 
 @dataclass(frozen=True)
@@ -23,9 +30,10 @@ class SpectrumPoint:
     detector: int
     wavelength_um: float
     bandwidth_um: float
-    flux_mjy: float
+    flux_mjy: float  # NaN when the centre of the star could not be measured
     error_mjy: float
     saturated: bool
+    ring_mjy: float = float("nan")  # brightness in the ring outside the core: a relative measure only
 
 
 def measure(cutout: Cutout, ra: float, dec: float) -> SpectrumPoint | None:
@@ -42,13 +50,16 @@ def measure(cutout: Cutout, ra: float, dec: float) -> SpectrumPoint | None:
     annulus = (r >= ANNULUS_PX[0]) & (r <= ANNULUS_PX[1]) & np.isfinite(data)
     background = float(np.nanmedian(data[annulus])) if annulus.any() else 0.0
     values = data[aperture] - background
-    saturated_bits = sum(cutout.flag_bits.get(n, 0) for n in SATURATION_FLAGS)
-    saturated = bool(np.any(cutout.flags[aperture] & saturated_bits)) or bool(np.any(~np.isfinite(values)))
+    overflow = saturated_pixels(cutout)
+    saturated = bool(overflow[aperture].any()) or bool(np.any(~np.isfinite(values)))
     # MJy/sr per pixel -> mJy: multiply by the pixel solid angle (sr) and 1e9 mJy/MJy
     pixel_sr = proj_plane_pixel_area(cutout.wcs.celestial) * (np.pi / 180) ** 2
     to_mjy = pixel_sr * 1e9
-    flux = float(np.nansum(values)) * to_mjy
-    error = float(np.sqrt(np.nansum(cutout.variance[aperture]))) * to_mjy
+    if np.isfinite(values).mean() >= MIN_APERTURE_COVERAGE:
+        flux = float(np.nansum(values)) * to_mjy
+        error = float(np.sqrt(np.nansum(cutout.variance[aperture]))) * to_mjy
+    else:  # the centre is empty: an empty sum would read as "0 mJy", which is wrong
+        flux = error = float("nan")
     return SpectrumPoint(
         mjd=cutout.mjd,
         detector=cutout.detector,
@@ -57,7 +68,18 @@ def measure(cutout: Cutout, ra: float, dec: float) -> SpectrumPoint | None:
         flux_mjy=flux,
         error_mjy=error,
         saturated=saturated,
+        ring_mjy=_ring_brightness(data, r, overflow, to_mjy),
     )
+
+
+def _ring_brightness(data: np.ndarray, r: np.ndarray, overflow: np.ndarray, to_mjy: float) -> float:
+    """Light in the ring outside the core, in mJy, or NaN when too little of the ring can be used."""
+    ring = (r >= RING_PX[0]) & (r <= RING_PX[1])
+    good = ring & ~overflow & np.isfinite(data)
+    far = (r >= RING_BACKGROUND_PX[0]) & (r <= RING_BACKGROUND_PX[1]) & np.isfinite(data)
+    if good.sum() < MIN_RING_COVERAGE * ring.sum() or far.sum() < 20:
+        return float("nan")
+    return (float(np.mean(data[good])) - float(np.median(data[far]))) * int(ring.sum()) * to_mjy
 
 
 def measure_all(cutouts: list[Cutout], target: Target) -> list[SpectrumPoint]:

@@ -145,21 +145,26 @@ def show_spectrum(points, frames) -> None:
                 return f.date
         return "other dates"
 
-    rows = [
-        {
-            "Wavelength (um)": round(p.wavelength_um, 4),
-            "Brightness (mJy)": round(p.flux_mjy, 3),
-            "Visit": visit_of(p.mjd),
-            "Saturated": p.saturated,
-        }
-        for p in points
-    ]
-    st.scatter_chart(rows, x="Wavelength (um)", y="Brightness (mJy)", color="Visit", height=360)
+    # A star that saturates the detector has no usable brightness at its centre. For such a star the chart shows
+    # the light in a ring outside the core instead (see spherex/spectrum.py), as the web viewer does.
     saturated = sum(p.saturated for p in points)
-    if saturated > len(points) / 2:
+    ring_mode = saturated > len(points) / 2
+    label = "Brightness outside the core (mJy)" if ring_mode else "Brightness (mJy)"
+    rows = [
+        {"Wavelength (um)": round(p.wavelength_um, 4), label: round(value, 3), "Visit": visit_of(p.mjd)}
+        for p in points
+        for value in [p.ring_mjy if ring_mode else p.flux_mjy]
+        if np.isfinite(value) and (ring_mode or not p.saturated)
+    ]
+    if not rows:
+        st.info("No brightness could be measured here.")
+        return
+    st.scatter_chart(rows, x="Wavelength (um)", y=label, color="Visit", height=360)
+    if ring_mode:
         st.warning(
-            f"The target is saturated in {saturated} of {len(points)} images, so these values are too low. "
-            "Compare visits with each other rather than reading the numbers."
+            f"The target saturates the detector in {saturated} of {len(points)} images, so this shows the light in a ring "
+            "just outside its core. That follows the star up and down but is not its total brightness: a steady star "
+            "still wanders by about 20% this way."
         )
     st.caption(
         "Each dot is one SPHEREx image. Every image sees the target at a slightly different wavelength, so the dots "

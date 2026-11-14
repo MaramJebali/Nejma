@@ -24,11 +24,16 @@ def showcase_path(text: str, fov: float, band: int) -> Path:
 
 def save(path: Path, frames: list[Frame], wcs: WCS, info: dict, points: list[SpectrumPoint] = ()) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    meta = [{k: v for k, v in asdict(f).items() if k != "data"} for f in frames]
+    arrays = ("data", "saturated")
+    meta = [{k: getattr(f, k) for k in f.__dataclass_fields__ if k not in arrays} for f in frames]
+    extra = {}
+    if frames and all(f.saturated is not None for f in frames):
+        extra["sat"] = np.stack([f.saturated.astype(np.uint8) for f in frames])
     np.savez_compressed(
         path,
         data=np.stack([f.data.astype(np.float32) for f in frames]),
         meta=np.array(json.dumps({"frames": meta, "wcs": wcs.to_header_string(), "points": [asdict(p) for p in points], **info})),
+        **extra,
     )
 
 
@@ -37,10 +42,11 @@ def load(path: Path) -> tuple[list[Frame], WCS, dict]:
     with np.load(path) as stored:
         meta = json.loads(str(stored["meta"]))
         data = stored["data"]
+        sat = stored["sat"].astype(bool) if "sat" in stored else [None] * len(data)  # files saved before the mask existed
     frames = []
-    for array, m in zip(data, meta.pop("frames")):
+    for array, mask, m in zip(data, sat, meta.pop("frames")):
         m["wavelength_um"] = tuple(m["wavelength_um"])
-        frames.append(Frame(data=array, **m))
+        frames.append(Frame(data=array, saturated=mask, **m))
     wcs = WCS(fits.Header.fromstring(meta.pop("wcs")))
     meta["points"] = [SpectrumPoint(**p) for p in meta.get("points", [])]
     return frames, wcs, meta

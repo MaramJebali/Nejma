@@ -10,6 +10,7 @@ from astropy.stats import sigma_clipped_stats
 from astropy.time import Time
 from astropy.wcs import WCS
 from reproject import reproject_interp
+from scipy.ndimage import binary_propagation
 
 from .archive import Cutout, ImageRecord
 
@@ -22,6 +23,9 @@ EXCLUDE_FLAGS = ("NONFUNC", "MISSING_DATA", "HOT", "COLD")
 QUIET_FLAGS = ("SOURCE", "FULLSAMPLE")
 
 GRID_ARCSEC = 3.0  # output pixel size, about half the native 6.1" pixel
+
+# Set where the detector filled up: the star was too bright to measure there.
+SATURATION_FLAGS = ("OVERFLOW",)
 
 
 def group_visits(mjds, gap_days: float = 20.0, max_span_days: float = 60.0, bin_days: float = 30.0) -> list[list[int]]:
@@ -96,6 +100,18 @@ def clean_image(cutout: Cutout, exclude=EXCLUDE_FLAGS) -> np.ndarray:
     return data.astype(np.float32)
 
 
+def saturated_pixels(cutout: Cutout) -> np.ndarray:
+    """Pixels the detector could not measure because the star was too bright.
+
+    SPHEREx flags them OVERFLOW. The very centre of a bright star often has no value at all, so empty pixels
+    that touch a flagged one are counted too.
+    """
+    overflow = flag_mask(cutout.flags, cutout.flag_bits, SATURATION_FLAGS)
+    if not overflow.any():
+        return overflow
+    return binary_propagation(overflow, mask=overflow | ~np.isfinite(cutout.image))
+
+
 def target_grid(ra: float, dec: float, fov_deg: float, pixel_arcsec: float = GRID_ARCSEC) -> tuple[WCS, tuple[int, int]]:
     """A north-up, east-left grid centred on the target. The size is odd so the target sits on a pixel centre."""
     n = int(np.ceil(fov_deg * 3600 / pixel_arcsec)) | 1
@@ -138,6 +154,7 @@ class Frame:
     wavelength_um: tuple[float, float]
     target_flags: dict[str, int] = field(default_factory=dict)  # flag name -> number of images with it near the target
     flag_fractions: dict[str, float] = field(default_factory=dict)  # flag name -> mean fraction of pixels
+    saturated: np.ndarray | None = None  # True where at least half of the visit's images were saturated
 
     @property
     def date(self) -> str:
@@ -153,6 +170,11 @@ def stack_visit(cutouts: list[Cutout], wcs_out: WCS, shape: tuple[int, int], ra:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN pixels at the edges
         data = np.nanmedian(np.stack(planes), axis=0)
+        masks = [saturated_pixels(c) for c in cutouts]
+        saturated = np.zeros(shape, dtype=bool)
+        if any(m.any() for m in masks):
+            on_grid = [to_grid(m.astype(np.float32), c.wcs, wcs_out, shape) for m, c in zip(masks, cutouts)]
+            saturated = np.nanmean(np.stack(on_grid), axis=0) >= 0.5
     target_flags: dict[str, int] = {}
     fractions: dict[str, float] = {}
     for c in cutouts:
@@ -174,6 +196,7 @@ def stack_visit(cutouts: list[Cutout], wcs_out: WCS, shape: tuple[int, int], ra:
         wavelength_um=(min(waves), max(waves)),
         target_flags=dict(sorted(target_flags.items(), key=lambda kv: -kv[1])),
         flag_fractions={k: v for k, v in sorted(fractions.items(), key=lambda kv: -kv[1]) if v > 0},
+        saturated=saturated,
     )
 
 

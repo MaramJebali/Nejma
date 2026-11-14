@@ -1,3 +1,4 @@
+# For the Streamlit viewer (app.py). The live-query service has its own list in api/requirements.txt.
 streamlit>=1.40
 numpy>=1.26
 astropy>=6.0

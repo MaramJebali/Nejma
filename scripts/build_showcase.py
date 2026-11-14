@@ -15,6 +15,7 @@ from spherex import showcase  # noqa: E402
 from spherex.archive import get_cutouts, query_images  # noqa: E402
 from spherex.process import build_frames, plan_visits  # noqa: E402
 from spherex.resolve import resolve  # noqa: E402
+from spherex.spectrum import measure_all  # noqa: E402
 
 FOV = 0.1
 MAX_PER_VISIT = 12
@@ -33,5 +34,5 @@ for label, (text, band) in PRESETS.items():
         "n_records": len(records),
         "n_skipped": len(skipped),
         "n_failures": len(failures),
-    })
+    }, measure_all(cutouts, target))
     print(f"{label}: {len(frames)} frames, {len(failures)} failed downloads, {path.stat().st_size / 1e3:.0f} kB, {time.time() - started:.0f} s")

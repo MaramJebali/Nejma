@@ -8,7 +8,7 @@ import numpy as np
 import streamlit as st
 
 from app_presets import PRESETS
-from spherex import gaia, render, showcase
+from spherex import gaia, render, showcase, spectrum
 from spherex.archive import DETECTORS, get_cutouts, is_cached, query_images
 from spherex.process import EXCLUDE_FLAGS, build_frames, plan_visits
 from spherex.resolve import Target, mjd_to_year, resolve
@@ -82,7 +82,7 @@ def get_frames(target: Target, fov: float, band: int, text: str = "", live: bool
     if not live and text and stored.exists():
         frames, wcs, info = showcase.load(stored)
         result = {"frames": frames, "wcs": wcs, "n_records": info["n_records"], "skipped": [None] * info["n_skipped"],
-                  "failures": [None] * info["n_failures"], "showcase": info["built"]}
+                  "failures": [None] * info["n_failures"], "showcase": info["built"], "points": info["points"]}
         cache[key] = result
         return result
     with st.spinner("Searching the SPHEREx archive at IRSA (this can take up to a minute)..."):
@@ -102,11 +102,62 @@ def get_frames(target: Target, fov: float, band: int, text: str = "", live: bool
         bar.empty()
     with st.spinner("Aligning and stacking images..."):
         frames, wcs = build_frames(visits, cutouts, target.ra, target.dec, fov)
-    result = {"frames": frames, "wcs": wcs, "n_records": len(records), "skipped": skipped, "failures": failures, "showcase": None}
+        points = spectrum.measure_all(cutouts, target)
+    result = {"frames": frames, "wcs": wcs, "n_records": len(records), "skipped": skipped, "failures": failures,
+              "showcase": None, "points": points}
     if len(cache) >= 4:
         cache.pop(next(iter(cache)))
     cache[key] = result
     return result
+
+
+def other_detector_points(target: Target, fov: float, band: int) -> list:
+    """Spectrum points from the five detectors not on screen (4 images per visit each, to keep it quick)."""
+    key = ("spectrum", round(target.ra, 5), round(target.dec, 5), band)
+    if key in ss:
+        return ss[key]
+    others = [d for d in DETECTORS if d != band]
+    bar = st.progress(0.0, text="Measuring the other detectors...")
+    points = []
+    for i, det in enumerate(others):
+        visits, _ = plan_visits(query_images(target.ra, target.dec, det), max_per_visit=4)
+        wanted = [r for v in visits for r in v.records]
+        cutouts, _ = get_cutouts(wanted, target.ra, target.dec, fov * 1.5)
+        points += spectrum.measure_all(cutouts, target)
+        bar.progress((i + 1) / len(others), text=f"Measured detector D{det} ({i + 1} of {len(others)})")
+    bar.empty()
+    ss[key] = points
+    return points
+
+
+def show_spectrum(points, frames) -> None:
+    def visit_of(mjd: float) -> str:
+        for f in frames:
+            if f.mjd_start - 1 <= mjd <= f.mjd_end + 1:
+                return f.date
+        return "other dates"
+
+    rows = [
+        {
+            "Wavelength (um)": round(p.wavelength_um, 4),
+            "Brightness (mJy)": round(p.flux_mjy, 3),
+            "Visit": visit_of(p.mjd),
+            "Saturated": p.saturated,
+        }
+        for p in points
+    ]
+    st.scatter_chart(rows, x="Wavelength (um)", y="Brightness (mJy)", color="Visit", height=360)
+    saturated = sum(p.saturated for p in points)
+    if saturated > len(points) / 2:
+        st.warning(
+            f"The target is saturated in {saturated} of {len(points)} images, so these values are too low. "
+            "Compare visits with each other rather than reading the numbers."
+        )
+    st.caption(
+        "Each dot is one SPHEREx image. Every image sees the target at a slightly different wavelength, so the dots "
+        "together trace its spectrum. Colours separate the visits: a gap between colours at the same wavelength means "
+        "the object changed brightness."
+    )
 
 
 def marker_positions(target: Target, frames, wcs) -> list[tuple[float, float]]:
@@ -264,6 +315,18 @@ else:
     ]
     show_gif(images, frame_ms)
     st.caption("North is up, east is left. All frames use the same brightness scale.")
+
+st.subheader("Spectrum at the target")
+points = list(result.get("points") or [])
+if st.toggle("Add the other five detectors (0.75 to 5 um, downloads about 60 more images)", key="all_detectors"):
+    try:
+        points += other_detector_points(target, fov, band)
+    except Exception as exc:
+        st.warning(f"Some detectors could not be measured ({type(exc).__name__}).")
+if points:
+    show_spectrum(points, frames)
+else:
+    st.info("No spectrum points: the target is too close to the edge of the images.")
 
 with st.expander("Visits used", expanded=True):
     rows = [

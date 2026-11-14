@@ -12,6 +12,7 @@ from astropy.io import fits
 from astropy.wcs import WCS
 
 from .process import Frame
+from .spectrum import SpectrumPoint
 
 SHOWCASE_DIR = Path(__file__).resolve().parents[1] / "data" / "showcase"
 
@@ -21,17 +22,18 @@ def showcase_path(text: str, fov: float, band: int) -> Path:
     return SHOWCASE_DIR / f"{slug}_fov{fov:g}_d{band}.npz"
 
 
-def save(path: Path, frames: list[Frame], wcs: WCS, info: dict) -> None:
+def save(path: Path, frames: list[Frame], wcs: WCS, info: dict, points: list[SpectrumPoint] = ()) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     meta = [{k: v for k, v in asdict(f).items() if k != "data"} for f in frames]
     np.savez_compressed(
         path,
         data=np.stack([f.data.astype(np.float32) for f in frames]),
-        meta=np.array(json.dumps({"frames": meta, "wcs": wcs.to_header_string(), **info})),
+        meta=np.array(json.dumps({"frames": meta, "wcs": wcs.to_header_string(), "points": [asdict(p) for p in points], **info})),
     )
 
 
 def load(path: Path) -> tuple[list[Frame], WCS, dict]:
+    """Returns (frames, grid WCS, info). info["points"] holds the SpectrumPoints."""
     with np.load(path) as stored:
         meta = json.loads(str(stored["meta"]))
         data = stored["data"]
@@ -40,4 +42,5 @@ def load(path: Path) -> tuple[list[Frame], WCS, dict]:
         m["wavelength_um"] = tuple(m["wavelength_um"])
         frames.append(Frame(data=array, **m))
     wcs = WCS(fits.Header.fromstring(meta.pop("wcs")))
+    meta["points"] = [SpectrumPoint(**p) for p in meta.get("points", [])]
     return frames, wcs, meta

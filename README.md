@@ -20,6 +20,10 @@ streamlit run app.py
   the IRSA TAP service and downloaded as cutouts. The query is not tied to one data release, so newly
   released images are picked up automatically.
 
+## Plan
+
+The project plan, build order and current status are in [docs/PLAN.md](docs/PLAN.md).
+
 ## Use of AI tools
 
 The source code in this repository was generated with Claude (Anthropic), running in Claude Code, at

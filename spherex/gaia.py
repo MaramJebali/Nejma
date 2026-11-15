@@ -43,7 +43,7 @@ def _float(value: str, default: float = 0.0) -> float:
         return default
 
 
-def query_gaia(ra: float, dec: float, radius_deg: float, max_stars: int = 1500) -> list[GaiaStar]:
+def query_gaia(ra: float, dec: float, radius_deg: float, max_stars: int = 1500, *, timeout: float = 180, attempts: int = 4) -> list[GaiaStar]:
     """Brightest Gaia DR3 sources within radius_deg, cached on disk (the catalogue does not change)."""
     path = cache_dir() / "gaia" / f"{ra:.4f}_{dec:+.4f}_{radius_deg:.3f}.json"
     if path.exists():
@@ -53,7 +53,7 @@ def query_gaia(ra: float, dec: float, radius_deg: float, max_stars: int = 1500) 
         f"WHERE 1 = CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius_deg:.5f})) "
         "ORDER BY phot_g_mean_mag"
     )
-    response = http_get(TAP_URL, params={"QUERY": adql, "FORMAT": "CSV"}, timeout=180)
+    response = http_get(TAP_URL, params={"QUERY": adql, "FORMAT": "CSV"}, timeout=timeout, attempts=attempts)
     stars = [
         GaiaStar(
             ra=float(row["ra"]),

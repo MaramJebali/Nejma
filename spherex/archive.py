@@ -96,7 +96,7 @@ class ImageRecord:
     mjd: float
 
 
-def query_images(ra: float, dec: float, detector: int | None = None) -> list[ImageRecord]:
+def query_images(ra: float, dec: float, detector: int | None = None, *, timeout: float = 300, attempts: int = 4) -> list[ImageRecord]:
     """List every spectral image covering (ra, dec), oldest first.
 
     No data release is named, so images from new releases show up automatically.
@@ -114,7 +114,7 @@ def query_images(ra: float, dec: float, detector: int | None = None) -> list[Ima
         f"WHERE 1 = CONTAINS(POINT('ICRS', {ra:.6f}, {dec:.6f}), p.poly) {band}"
         "ORDER BY p.time_bounds_lower"
     )
-    response = http_get(TAP_URL, params={"QUERY": adql, "FORMAT": "CSV"}, timeout=300)
+    response = http_get(TAP_URL, params={"QUERY": adql, "FORMAT": "CSV"}, timeout=timeout, attempts=attempts)
     rows = list(csv.DictReader(io.StringIO(response.text)))
     records = [
         ImageRecord(

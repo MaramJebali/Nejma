@@ -5,7 +5,7 @@
 
 const CONFIG = {
   data: 'data/',
-  api: '', // base URL of the live-query service; while empty, new positions open in the Streamlit app
+  api: 'https://dokdo-gull-api.onrender.com', // the live-query service (api/main.py); if empty, new positions open in the Streamlit app
   streamlit: 'https://dokdo-gull.streamlit.app/',
 };
 
@@ -816,7 +816,7 @@ async function lookLive(text, fov, band) {
     notice(`<strong>${escapeHtml(text)}</strong> is not one of the saved test targets, so its images have to be fetched from the SPHEREx archive, which takes one to three minutes. <a href="${liveLink(text, fov, band)}">Fetch it in the live viewer</a>.`);
     return;
   }
-  notice(`<strong>${escapeHtml(text)}</strong>: <span id="job-message">Asking the SPHEREx archive for its images.</span> The first look at a new position takes one to three minutes.<progress id="job"></progress>`);
+  notice(`<strong>${escapeHtml(text)}</strong>: <span id="job-message">Waking the server and asking the SPHEREx archive for its images.</span> The first look at a new position takes a few minutes.<progress id="job"></progress>`);
   try {
     const q = new URLSearchParams({ q: text, fov: String(fov), band: String(band) });
     let job = await getJSON(`${CONFIG.api}/view?${q}`);

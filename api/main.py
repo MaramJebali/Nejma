@@ -62,7 +62,8 @@ def run(job: dict, text: str, fov: float, band: int) -> None:
     try:
         target = resolve(text)
         job["message"] = "Asking the SPHEREx archive which images cover this position (up to a minute)."
-        records = query_images(target.ra, target.dec, band)
+        # Someone is waiting on a web page: give up on a silent archive after about three minutes, not twenty.
+        records = query_images(target.ra, target.dec, band, timeout=90, attempts=2)
         visits, skipped = plan_visits(records, max_per_visit=MAX_PER_VISIT)
         wanted = [r for v in visits for r in v.records]
         if not wanted:
@@ -81,7 +82,7 @@ def run(job: dict, text: str, fov: float, band: int) -> None:
             raise ValueError("Too few images could be downloaded to build a visit. Please try again in a few minutes.")
         points = measure_all(cutouts, target)
         try:
-            stars = query_gaia(target.ra, target.dec, fov * 0.75)
+            stars = query_gaia(target.ra, target.dec, fov * 0.75, timeout=60, attempts=1)
         except Exception:  # the viewer works without the Gaia overlay
             stars = []
         info = {"built": date.today().isoformat(), "n_records": len(records), "n_skipped": len(skipped), "n_failures": len(failures)}
@@ -91,7 +92,7 @@ def run(job: dict, text: str, fov: float, band: int) -> None:
         job["message"] = "Done."
     except Exception as exc:
         job["state"] = "error"
-        job["message"] = str(exc) if isinstance(exc, ValueError) else f"The SPHEREx archive did not answer ({type(exc).__name__})."
+        job["message"] = str(exc) if isinstance(exc, ValueError) else "The SPHEREx archive at IRSA is not answering right now. Please try again later"
     finally:
         job["finished"] = time.time()
 

@@ -339,7 +339,7 @@ body.embed #landing { display: none; }
 }
 
 /* modals */
-.modal { position: fixed; inset: 0; z-index: 90; }
+.modal { position: fixed; inset: 0; z-index: 120; }
 .modal-backdrop {
   position: absolute;
   inset: 0;

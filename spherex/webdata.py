@@ -67,7 +67,8 @@ def visit_brightness(frames: list[Frame], points: list[SpectrumPoint]) -> list[d
     Uses the usual aperture value unless most images are saturated; then it uses the ring outside the core,
     which only says how the brightness changed, not what it was.
     """
-    band = [p for p in points if frames and p.detector == frames[0].detector]
+    # A broadband frame (detector 0) is made from every detector, so it uses every spectral point.
+    band = [p for p in points if frames and (frames[0].detector == 0 or p.detector == frames[0].detector)]
     usable = [p for p in band if not p.saturated and math.isfinite(p.flux_mjy)]
     kind = "aperture" if band and len(usable) >= len(band) / 2 else "ring"
     out: list[dict | None] = []

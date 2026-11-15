@@ -200,6 +200,45 @@ def stack_visit(cutouts: list[Cutout], wcs_out: WCS, shape: tuple[int, int], ra:
     )
 
 
+def combine_frames(parts: list[Frame]) -> Frame:
+    """One broadband frame from the same visit in several detectors.
+
+    The detectors share the north-up grid, so their pixels can be averaged; a pixel is called saturated when any
+    detector saturated it. The result collects all the light as an average surface brightness over 0.75-5.01 um,
+    with the noise of the individual detectors reduced.
+    """
+    if not parts:
+        raise ValueError("no frames to combine")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN pixels at the edges
+        data = np.nanmean(np.stack([p.data for p in parts]), axis=0).astype(np.float32)
+    saturated = np.zeros(parts[0].data.shape, dtype=bool)
+    for p in parts:
+        if p.saturated is not None:
+            saturated |= p.saturated
+    target_flags: dict[str, int] = {}
+    fractions: dict[str, float] = {}
+    total_images = sum(p.n_images for p in parts) or 1
+    for p in parts:
+        for name, count in p.target_flags.items():
+            target_flags[name] = target_flags.get(name, 0) + count
+        for name, value in p.flag_fractions.items():
+            fractions[name] = fractions.get(name, 0.0) + value * p.n_images / total_images
+    return Frame(
+        detector=0,
+        mjd_start=min(p.mjd_start for p in parts),
+        mjd_end=max(p.mjd_end for p in parts),
+        mjd_mid=float(np.median([p.mjd_mid for p in parts])),
+        n_images=sum(p.n_images for p in parts),
+        n_available=sum(p.n_available for p in parts),
+        data=data,
+        wavelength_um=(min(p.wavelength_um[0] for p in parts), max(p.wavelength_um[1] for p in parts)),
+        target_flags=dict(sorted(target_flags.items(), key=lambda kv: -kv[1])),
+        flag_fractions={k: v for k, v in sorted(fractions.items(), key=lambda kv: -kv[1]) if v > 0},
+        saturated=saturated,
+    )
+
+
 def build_frames(visits: list[VisitPlan], cutouts: list[Cutout], ra: float, dec: float, fov_deg: float, min_per_visit: int = 3) -> tuple[list[Frame], WCS]:
     """Stack the downloaded cutouts visit by visit on a common grid."""
     wcs_out, shape = target_grid(ra, dec, fov_deg)

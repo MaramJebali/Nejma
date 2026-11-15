@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/nejma-logo.jpg" alt="Nejma logo" width="140">
+  <img src="assets/nejma-logo.png" alt="Nejma logo" width="140">
 </p>
 
 # Nejma

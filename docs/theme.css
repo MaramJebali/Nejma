@@ -119,6 +119,16 @@ body.embed #nejma-nav { display: none; }
 }
 #landing.entered { opacity: 0; visibility: hidden; pointer-events: none; }
 #landing-bg { position: absolute; inset: 0; }
+/* redden the starfield and pull its brightness down, so the text reads clearly */
+#landing-bg canvas { filter: brightness(0.62) saturate(1.35) sepia(0.35) hue-rotate(-22deg); }
+#landing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(90% 70% at 50% 42%, rgba(140, 26, 18, 0.30), rgba(60, 8, 6, 0.12) 60%, transparent 100%);
+  mix-blend-mode: multiply;
+}
 #landing::after {
   content: "";
   position: absolute;

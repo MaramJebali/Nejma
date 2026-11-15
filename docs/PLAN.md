@@ -20,8 +20,8 @@ The challenge asks us to test it on Barnard's Star, Epsilon Indi B, WISE 0855, R
   the fly. 53 unit tests pass.
 - New web viewer in `docs/` (plain HTML, CSS and JavaScript): plays the saved test targets in the browser with
   blink, zoom, a saturation overlay, the measured shift next to the catalogue prediction, brightness over time,
-  and the same field in 2MASS, WISE and DSS. Checked locally on all five targets; not public until GitHub Pages
-  is switched on for the repository.
+  and the same field in 2MASS, WISE and DSS. Public at https://cafe2913.github.io/dokdo-gull/ (GitHub Pages,
+  served from `docs/` on the main branch) and checked there.
 - New live-query service in `api/` for positions that are not saved. Checked locally on Luhman 16 (about 80
   seconds); not hosted yet. Until it is, the web viewer hands new positions to the Streamlit app.
 - Fixed: saturated stars were shown with a brightness of 0 mJy. They are now measured in a ring outside the core

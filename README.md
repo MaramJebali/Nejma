@@ -3,7 +3,10 @@
 A public web tool that shows how a patch of sky changes over time in images from NASA's SPHEREx mission.
 Built for the 2026 NASA Space Apps Challenge, ["Planet X and SPHEREx"](https://www.spaceappschallenge.org/2026/challenges/planet-x-and-spherex/).
 
-**Try it: https://dokdo-gull.streamlit.app** (for example [Barnard's Star, difference view](https://dokdo-gull.streamlit.app/?target=Barnard%27s%20Star&fov=0.1&band=2&mode=difference)).
+**Try it: https://cafe2913.github.io/dokdo-gull/** (for example [RW Aurigae, difference view](https://cafe2913.github.io/dokdo-gull/?target=RW%20Aur&mode=diff)
+or [WISE 0855 at the longest wavelengths](https://cafe2913.github.io/dokdo-gull/?target=WISE%20J085510.83-071442.5&band=6)).
+The five test targets play at once. Any other position is computed live, in one to three minutes, by the first
+version of the viewer at https://dokdo-gull.streamlit.app.
 
 Enter a sky position (Right Ascension and declination) or an object name. The tool finds every SPHEREx
 spectral image that covers that position, stacks the images taken during each visit, and plays the visits

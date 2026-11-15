@@ -12,7 +12,7 @@ What did you develop? How does it address the challenge? Why is it important?
 A video of 30 seconds or less, or a deck of at most 7 slides (including title and intro). Public link, no login.
 
 ## Link to Final Project
-https://dokdo-gull.streamlit.app (code: https://github.com/cafe2913/dokdo-gull)
+https://cafe2913.github.io/dokdo-gull/ (code: https://github.com/cafe2913/dokdo-gull; live computation of new positions: https://dokdo-gull.streamlit.app)
 
 ## Detailed Project Description
 What exactly does it do? How does it work? What benefits does it have? What do you hope to achieve?

@@ -23,7 +23,7 @@
   responses, added a `/health` endpoint. Reasoning: deployment verification.
 - `spherex/archive.py`: neutral User-Agent. Reasoning: public release.
 - Logo integration wired into the landing page and viewer header
-  (`assets/nejma-logo.png` served from `docs/assets/`, with a graceful
+  (`assets/nejma-logo.jpg` served from `docs/assets/`, with a graceful
   text-only fallback if the file is absent).
 - Added `vercel.json` (static `docs/**` + Python function `api/main.py`,
   query-string-preserving routes). Reasoning: Vercel deployment.

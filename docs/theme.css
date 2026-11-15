@@ -313,7 +313,7 @@ body.embed #landing { display: none; }
   position: fixed;
   left: 14px;
   top: 14px;
-  z-index: 70;
+  z-index: 130;
   display: flex;
   gap: 2px;
   padding: 4px;

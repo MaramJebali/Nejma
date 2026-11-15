@@ -1,5 +1,5 @@
 # AI-generated code: written with Claude (Anthropic) at the team's direction for NASA Space Apps 2026.
-"""Dokdo Gull: a time-lapse viewer for SPHEREx images."""
+"""Nejma: a time-lapse viewer for SPHEREx images."""
 from __future__ import annotations
 
 import base64
@@ -17,7 +17,7 @@ MODES = {"animation": "Animation", "difference": "Difference", "stack": "All vis
 MAX_PER_VISIT = 12
 MARKER_RADIUS_PX = 4.0  # on the 3" grid, so 12": larger than the 7.5" PSF
 
-st.set_page_config(page_title="Dokdo Gull | SPHEREx time-lapse viewer", page_icon="🔭", layout="wide")
+st.set_page_config(page_title="Nejma | SPHEREx time-lapse viewer", page_icon="🔭", layout="wide")
 ss = st.session_state
 
 
@@ -218,7 +218,7 @@ with st.sidebar:
         "Images are cached, so a second look at the same place is quick."
     )
 
-st.title("Dokdo Gull (독도괭이갈매기)")
+st.title("Nejma")
 st.caption("See how a patch of sky changes over time in NASA SPHEREx images.")
 
 if not ss.request:
@@ -365,5 +365,5 @@ with st.expander("Visits used", expanded=True):
 
 st.caption(
     "Data: NASA SPHEREx spectral images from the NASA/IPAC Infrared Science Archive (IRSA). "
-    "Gaia DR3 (ESA) via IRSA. Names resolved with CDS Sesame/SIMBAD. Code: https://github.com/cafe2913/dokdo-gull"
+    "Gaia DR3 (ESA) via IRSA. Names resolved with CDS Sesame/SIMBAD. See THIRD_PARTY_NOTICES.md for third-party license information."
 )

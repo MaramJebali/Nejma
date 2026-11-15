@@ -1,0 +1,267 @@
+/* nejma theme — the violet-glass "universe" skin,
+   layered over the viewer's stylesheet. Functional colours that carry DATA
+   meaning (the six detector tints, amber/gaia/sat overlays) are untouched;
+   only the presentation chrome is re-skinned. */
+
+:root {
+  --bg: #04050a;
+  --glass: linear-gradient(180deg, rgba(12, 6, 40, 0.66) 0%, rgba(24, 12, 66, 0.55) 100%);
+  --glass-strong: linear-gradient(180deg, rgba(10, 6, 32, 0.92) 0%, rgba(18, 10, 48, 0.88) 100%);
+  --violet: #a78bfa;
+  --violet-bright: #c084fc;
+  --violet-glow: rgba(167, 139, 250, 0.55);
+
+  --night: #04050a;
+  --panel: rgba(18, 10, 48, 0.6);
+  --rule: rgba(167, 139, 250, 0.22);
+  --paper: #f1edfd;
+  --dim: #a9a3c7;
+  --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+  --serif: "Instrument Serif", Georgia, serif;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body { background: var(--bg); }
+
+/* ---------- fixed universe backdrop (the film's ending frame) ---------- */
+#universe-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+#universe-bg::after {
+  /* spotlight floor + violet breath, over the universe page */
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 55vh;
+  background: radial-gradient(60% 90% at 50% 120%, rgba(167, 139, 250, 0.14), transparent 70%);
+}
+body.embed #universe-bg, body.embed #nejma-nav { display: none; }
+
+/* everything visible sits above the backdrop */
+.top, main, .foot { position: relative; z-index: 1; }
+
+/* ---------- navbar (glass capsule, pinned top-right) ---------- */
+#nejma-nav {
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 16px 0 0;
+}
+body.embed #nejma-nav { display: none; }
+.nejma-capsule {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px 8px 14px;
+  border: 1px solid rgba(167, 139, 250, 0.38);
+  border-radius: 999px;
+  background-image: var(--glass-strong), linear-gradient(115deg, rgba(245, 208, 254, 0.14), rgba(255, 255, 255, 0.03) 40%, rgba(167, 139, 250, 0.2));
+  backdrop-filter: blur(20px);
+  box-shadow: 0 0 26px -4px var(--violet-glow), 0 18px 45px -20px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.nejma-capsule .brand {
+  font: 400 17px/1 var(--serif);
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+  background: none;
+  border: 0;
+  height: auto;
+  padding: 0 8px 0 0;
+  cursor: pointer;
+}
+.nejma-capsule .nav-rule {
+  width: 26px;
+  height: 1px;
+  margin: 0 2px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(167, 139, 250, 0.85), rgba(255, 255, 255, 0.05));
+  box-shadow: 0 0 8px 1px var(--violet-glow);
+}
+.nejma-capsule button.nav-link {
+  height: auto;
+  padding: 7px 12px;
+  border: 0;
+  background: none;
+  border-radius: 999px;
+  font: 500 11px/1.2 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+}
+.nejma-capsule button.nav-link:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
+.nejma-capsule button.nav-link[aria-current="true"] {
+  color: #fff;
+  text-shadow: 0 0 12px rgba(167, 139, 250, 0.75);
+}
+@media (max-width: 720px) {
+  .nejma-capsule button.nav-link { padding: 7px 8px; letter-spacing: 0.12em; }
+  .nejma-capsule .brand { font-size: 15px; }
+}
+
+/* ---------- the landing screen ---------- */
+#landing {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  overflow: hidden;
+  transition: opacity 0.9s ease, visibility 0.9s;
+}
+#landing.entered { opacity: 0; visibility: hidden; pointer-events: none; }
+#landing-bg { position: absolute; inset: 0; }
+#landing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 110%, rgba(0, 0, 0, 0.55), transparent 60%);
+}
+.landing-inner {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 24px;
+  max-width: 720px;
+}
+.landing-logo, .wordmark-logo {
+  display: block;
+  margin: 0 auto;
+  width: 112px;
+  height: auto;
+  filter: drop-shadow(0 0 18px rgba(167, 139, 250, 0.35));
+}
+.wordmark-logo {
+  display: inline-block;
+  vertical-align: -8px;
+  width: 30px;
+  margin: 0 8px 0 0;
+}
+.landing-eyebrow {
+  margin: 0;
+  font: 500 11px/1.6 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--violet-bright);
+}
+.landing-title {
+  margin: 18px 0 10px;
+  font: 400 clamp(64px, 14vw, 150px)/0.95 var(--serif);
+  font-style: italic;
+  color: var(--paper);
+  text-shadow: 0 0 40px rgba(167, 139, 250, 0.4);
+}
+.landing-sub {
+  margin: 0 auto 34px;
+  max-width: 46ch;
+  color: var(--dim);
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+.landing-actions { display: flex; gap: 14px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.landing-start {
+  height: auto;
+  padding: 13px 30px;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  border-radius: 999px;
+  background: rgba(167, 139, 250, 0.12);
+  color: #fff;
+  font: 500 12.5px/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  cursor: pointer;
+  box-shadow: 0 0 22px -6px var(--violet-glow);
+  transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+}
+.landing-start:hover {
+  background: rgba(167, 139, 250, 0.24);
+  box-shadow: 0 0 34px -6px var(--violet-glow);
+  transform: translateY(-1px);
+}
+.landing-hint {
+  margin: 26px 0 0;
+  font-size: 12.5px;
+  color: rgba(169, 163, 199, 0.75);
+}
+.landing-hint a { color: var(--dim); }
+
+/* ---------- universe chrome over the viewer ---------- */
+body.universe .top {
+  border-bottom: 1px solid transparent;
+}
+.top { padding-top: 84px; }
+body.embed .top { padding-top: 18px; }
+.search input[type="text"], .search select {
+  background: var(--glass-strong);
+  border-color: var(--rule);
+  border-radius: 8px;
+  color: var(--paper);
+}
+.search input[type="text"]::placeholder { color: #8d86ad; }
+.search input[type="text"]:focus, .search select:focus { border-color: var(--violet); outline: none; }
+.search .primary {
+  background: linear-gradient(115deg, rgba(167, 139, 250, 0.85), rgba(192, 132, 252, 0.9));
+  border-color: transparent;
+  color: #170b2e;
+  border-radius: 999px;
+}
+.search .primary:hover { filter: brightness(1.1); }
+
+main .bench > .plate-column,
+main .readout {
+  background: var(--glass);
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+}
+.plate { border-radius: 12px; }
+
+.band-section h2 { font-family: var(--serif); letter-spacing: 0.01em; }
+.charts figure, .aladin, .table-wrap {
+  background: var(--glass);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+}
+.chart { background: transparent; border: 0; border-radius: 12px 12px 0 0; }
+figcaption { padding: 0 14px 12px; }
+.table-wrap { padding: 8px 14px; border-radius: 12px; }
+.charts figure { padding: 12px 4px 0; }
+.tip { background: rgba(10, 6, 32, 0.95); border-color: var(--rule); border-radius: 8px; }
+
+button { border-radius: 8px; }
+button:hover { border-color: var(--violet); }
+button.primary {
+  background: linear-gradient(115deg, rgba(167, 139, 250, 0.85), rgba(192, 132, 252, 0.9));
+  border-color: transparent;
+  color: #170b2e;
+}
+button.primary:hover { filter: brightness(1.1); }
+.segments button { border-radius: 0; }
+.segments button[aria-pressed="true"] {
+  background: linear-gradient(115deg, rgba(167, 139, 250, 0.85), rgba(192, 132, 252, 0.9));
+  border-color: transparent;
+  color: #170b2e;
+}
+:focus-visible { outline-color: var(--violet-bright); }
+input[type="range"], input[type="checkbox"], .notice progress { accent-color: var(--violet-bright); }
+.notice { background: var(--glass-strong); border-left-color: var(--violet); }
+.notice.error { border-left-color: var(--sat); }
+a { color: var(--violet-bright); }
+
+.gallery .g-name { font-family: var(--serif); }
+.readout h1 { font-family: var(--serif); }
+.about { font-family: var(--serif); }
+
+/* landing is suppressed entirely when the viewer is embedded */
+body.embed #landing { display: none; }

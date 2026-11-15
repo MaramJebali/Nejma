@@ -5,8 +5,8 @@
 
 const CONFIG = {
   data: 'data/',
-  api: 'https://dokdo-gull-api.onrender.com', // the live-query service (api/main.py); if empty, new positions open in the Streamlit app
-  streamlit: 'https://dokdo-gull.streamlit.app/',
+  api: '/api',       // same-origin live-query service (api/main.py); if empty, new positions open in the Streamlit app
+  streamlit: '',     // optional external fallback viewer for live queries
 };
 
 // The six detectors: wavelength range in micrometres and the colour used for them everywhere on the page.
@@ -388,12 +388,12 @@ function movesVisibly() {
 
 function updateText() {
   const v = S.view, T = S.target, f = shownFrame(), frame = v.frames[f];
-  const [lo, hi] = BANDS[v.band].range;
+  const [lo, hi] = v.band ? BANDS[v.band].range : [0.75, 5.01];
   const day = (i) => escapeHtml(v.frames[i].date);
   const what = S.mode === 'diff' ? `<strong>${day(S.frame)}</strong> minus ${day(S.ref)}`
     : S.mode === 'stack' ? `<strong>All ${v.frames.length} visits</strong>, ${day(0)} to ${day(v.frames.length - 1)}`
     : `<strong>${day(f)}</strong>, visit ${f + 1} of ${v.frames.length}`;
-  $('caption').innerHTML = `${what}. Detector D${v.band}, ${lo.toFixed(2)} to ${hi.toFixed(2)} µm. North is up, east is left.`;
+  $('caption').innerHTML = `${what}. ${v.band ? 'Detector D' + v.band : 'Sum of all six detectors'}, ${lo.toFixed(2)} to ${hi.toFixed(2)} µm. North is up, east is left.`;
 
   const rows = [];
   rows.push(['Position', `${sexagesimal(T.ra, true)}, ${sexagesimal(T.dec, false)} <small>(${T.ra.toFixed(5)}°, ${T.dec >= 0 ? '+' : ''}${T.dec.toFixed(5)}°${hasMotion() ? ', where it is in ' + T.epoch.toFixed(0) : ''})</small>`]);
@@ -471,7 +471,11 @@ function buildTable() {
     return `<tr data-i="${i}">${cells.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`;
   });
   $('visits').innerHTML = `<thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody>`;
-  const notes = ['Each visit is the median of up to 12 images from detector D' + v.band + '.'];
+  const notes = [
+    v.band === 0
+      ? 'Each visit is the average of the six detectors, matched date by date; a pixel is shown as saturated when any detector saturates it.'
+      : 'Each visit is the median of up to 12 images from detector D' + v.band + '.',
+  ];
   if (v.meta.failures) notes.push(`${v.meta.failures} image(s) could not be downloaded from the archive and were left out.`);
   if (v.meta.skipped) notes.push(`${v.meta.skipped} short visit(s) with fewer than 3 images were left out.`);
   if (v.meta.built) notes.push(`Computed on ${v.meta.built} from ${v.meta.records} images in the archive.`);
@@ -500,6 +504,10 @@ function markRuler() {
     b.setAttribute('aria-pressed', String(S.view && band === S.view.band));
     b.disabled = Boolean(S.entry && !S.entry.bands.includes(band));
   }
+  const sum = $('ov-sum');
+  sum.checked = Boolean(S.view && S.view.band === 0);
+  sum.disabled = !S.entry;
+  $('sum-help').hidden = !(S.view && S.view.band === 0);
 }
 
 function setMode(mode) {
@@ -766,6 +774,97 @@ async function loadView(entry, band) {
   return S.views.get(key);
 }
 
+// ---- summed view: a broadband composite of all six detectors ----
+// Each saved detector has the same 3" north-up grid, so visits taken on the
+// same dates (matched within a few days) can be averaged pixel by pixel.
+// This is the challenge's "summing detector arrays" consideration: more
+// signal, one picture from 0.75 to 5 um. Only the saved targets have all six
+// detectors on hand, so live queries fall back to single detectors.
+const SUM_TOLERANCE_DAYS = 5;
+
+function summarizeSummedFrame(anchor, parts) {
+  const flags = {};
+  let wl0 = Infinity, wl1 = -Infinity, images = 0, available = Infinity;
+  let mx = 0, my = 0, nm = 0, cx = 0, cy = 0, nc = 0;
+  for (const { frame } of parts) {
+    for (const [name, count] of Object.entries(frame.flags)) flags[name] = (flags[name] || 0) + count;
+    wl0 = Math.min(wl0, frame.wl[0]); wl1 = Math.max(wl1, frame.wl[1]);
+    images += frame.images; available = Math.min(available, frame.available);
+    mx += frame.marker[0]; my += frame.marker[1]; nm++;
+    if (frame.centroid) { cx += frame.centroid[0]; cy += frame.centroid[1]; nc++; }
+  }
+  return {
+    date: anchor.date, mjd: anchor.mjd, year: anchor.year, days: anchor.days,
+    images, available, wl: [wl0, wl1], flags,
+    marker: [mx / nm, my / nm],
+    centroid: nc ? [cx / nc, cy / nc] : null,
+    brightness: null,
+  };
+}
+
+async function buildSummedView(entry) {
+  const views = await Promise.all(entry.bands.map((b) => loadView(entry, b)));
+  const base = views[0], n = base.n, size = n * n;
+  if (!views.every((v) => v.n === n)) throw new Error('the saved detectors have different grids');
+  const frames = [], data = [], sat = [];
+  for (const anchor of base.frames) {
+    const parts = [];
+    for (const v of views) {
+      let best = null, bestD = SUM_TOLERANCE_DAYS;
+      for (const f of v.frames) { const d = Math.abs(f.mjd - anchor.mjd); if (d < bestD) { bestD = d; best = f; } }
+      if (best) parts.push({ view: v, frame: best });
+    }
+    if (!parts.length) continue;
+    const sum = new Float32Array(size), count = new Float32Array(size);
+    let anySat = null;
+    for (const { view, frame } of parts) {
+      const i = view.frames.indexOf(frame), arr = view.data[i];
+      for (let k = 0; k < size; k++) if (arr[k] === arr[k]) { sum[k] += arr[k]; count[k]++; }
+      const s = view.sat && view.sat[i];
+      if (s) {
+        if (!anySat) anySat = new Uint8Array(size);
+        for (let k = 0; k < size; k++) if (s[k]) anySat[k] = 1;
+      }
+    }
+    const mean = new Float32Array(size);
+    for (let k = 0; k < size; k++) mean[k] = count[k] ? sum[k] / count[k] : NaN;
+    frames.push(summarizeSummedFrame(anchor, parts));
+    data.push(fillHoles(mean, n));
+    sat.push(anySat);
+  }
+  if (frames.length < 2) throw new Error('the saved visits do not overlap between detectors');
+  const stats = data.map(robust);
+  const sigma = median(stats.map((s) => s.sigma)) || 1e-6;
+  const low = median(stats.map((s) => s.median)) - 1.5 * sigma;
+  const high = Math.max(...stats.map((s) => quantile(s.sorted, 0.997)), low + 10 * sigma);
+  const autoGain = clamp(0.0104 * (high - low) / sigma, 1, 40);
+  return {
+    band: 0, n, frames, data, sat,
+    raw: data.map((a) => Float32Array.from(a)),
+    low, high, sigma, autoGain,
+    smoothed: data.map((a) => blur(a, n)), stack: medianStack(data),
+    meta: { summed: true, built: base.meta.built, records: base.meta.records, failures: base.meta.failures, skipped: base.meta.skipped },
+  };
+}
+
+async function openSummed(entry, background = false) {
+  if (!background) notice('');
+  try {
+    const key = `${entry.slug}|sum`;
+    if (!S.views.has(key)) S.views.set(key, await buildSummedView(entry));
+    show(S.target, S.views.get(key), entry, background);
+  } catch (error) {
+    console.warn('summed view:', error);
+    notice(`The summed view could not be built (${escapeHtml(error.message)}).`, 'error');
+  }
+}
+
+function chooseSummed() {
+  if (!S.view || S.view.band === 0) return;
+  if (S.entry) return openSummed(S.entry);
+  notice('The sum of all six detectors is available for the five saved test targets. For other positions, pick one detector at a time.');
+}
+
 function show(target, view, entry, keepUrl = false) {
   const sameField = S.target === target;
   S.target = target; S.entry = entry; S.view = view;
@@ -776,7 +875,7 @@ function show(target, view, entry, keepUrl = false) {
   S.bufKey = '';
   $('name').textContent = entry ? entry.name : target.label;
   $('about').textContent = entry ? entry.about : (hasMotion() ? 'Found by name in SIMBAD' : 'A position you entered');
-  document.title = `${$('name').textContent} | Dokdo Gull`;
+  document.title = `${$('name').textContent} | nejma`;
   $('ov-gaia').disabled = !target.gaia.stars.length;
   $('ov-sat').disabled = !view.sat;
   $('ov-marker').closest('label').lastChild.textContent = hasMotion() ? 'Expected position, from the catalogue motion' : 'The position you asked for';
@@ -807,13 +906,15 @@ async function chooseBand(band) {
 }
 
 function liveLink(text, fov, band) {
+  if (!CONFIG.streamlit) return null;
   const q = new URLSearchParams({ target: text, fov: String(fov), band: String(band) });
   return `${CONFIG.streamlit}?${q}`;
 }
 
 async function lookLive(text, fov, band) {
+  const fallback = liveLink(text, fov, band);
   if (!CONFIG.api) {
-    notice(`<strong>${escapeHtml(text)}</strong> is not one of the saved test targets, so its images have to be fetched from the SPHEREx archive, which takes one to three minutes. <a href="${liveLink(text, fov, band)}">Fetch it in the live viewer</a>.`);
+    notice(`<strong>${escapeHtml(text)}</strong> is not one of the saved test targets, so its images have to be fetched from the SPHEREx archive, which takes one to three minutes.${fallback ? ` <a href="${fallback}">Fetch it in the live viewer</a>.` : ' Please try again in a few minutes.'}`);
     return;
   }
   notice(`<strong>${escapeHtml(text)}</strong>: <span id="job-message">Waking the server and asking the SPHEREx archive for its images.</span> The first look at a new position takes a few minutes.<progress id="job"></progress>`);
@@ -831,7 +932,7 @@ async function lookLive(text, fov, band) {
     notice('');
     show(S.target && !S.entry && S.target.query === job.target.query ? Object.assign(S.target, { points: mergePoints(S.target.points, job.target.points) }) : job.target, decodeView(job.view), null);
   } catch (error) {
-    notice(`That did not work: ${escapeHtml(error.message)}. <a href="${liveLink(text, fov, band)}">Try the live viewer instead</a>.`, 'error');
+    notice(`That did not work: ${escapeHtml(error.message)}.${fallback ? ` <a href="${fallback}">Try the live viewer instead</a>.` : ' Please try again later.'}`, 'error');
   }
 }
 function mergePoints(a, b) { const seen = new Set(a.map((p) => p.join())); return a.concat(b.filter((p) => !seen.has(p.join()))); }
@@ -848,7 +949,7 @@ function syncUrl() {
   const q = new URLSearchParams();
   q.set('target', S.entry ? S.entry.query : S.target.query);
   q.set('fov', String(S.target.fov));
-  q.set('band', String(S.view.band));
+  q.set('band', S.view.band === 0 ? 'sum' : String(S.view.band));
   q.set('mode', S.mode);
   if (params.has('embed')) q.set('embed', params.get('embed'));
   history.replaceState(null, '', `?${q}`);
@@ -938,6 +1039,7 @@ function wire() {
   $('ov-marker').addEventListener('change', (e) => { S.marker = e.target.checked; draw(); });
   $('ov-gaia').addEventListener('change', (e) => { S.gaia = e.target.checked; $('gaia-more').hidden = !S.gaia; draw(); });
   $('ov-sat').addEventListener('change', (e) => { S.sat = e.target.checked; draw(); });
+  $('ov-sum').addEventListener('change', (e) => { if (e.target.checked) chooseSummed(); else if (S.entry) openEntry(S.entry, S.entry.band); e.target.blur(); });
   $('gmag').addEventListener('input', (e) => { S.gmag = Number(e.target.value); $('gmag-out').textContent = e.target.value; draw(); });
   $('gain').addEventListener('input', (e) => { S.gain = Number(e.target.value); render(); document.querySelectorAll('#strip canvas').forEach((c, i) => paintThumb(c, S.view, i)); });
   $('smooth').addEventListener('change', (e) => { S.smooth = e.target.checked; draw(); });
@@ -1013,15 +1115,24 @@ async function start() {
   const fov = Number(params.get('fov')) || S.index.fov;
   $('fov').value = [0.05, 0.1, 0.2, 0.3].includes(fov) ? String(fov) : '0.1';
   const asked = params.get('ra') && params.get('dec') ? `${params.get('ra')} ${params.get('dec')}` : params.get('target');
-  const band = Number(params.get('band')) || 0;
+  const wantsSum = params.get('band') === 'sum';
+  const band = wantsSum ? 0 : Number(params.get('band')) || 0;
   if (asked && !findEntry(asked)) {
     $('q').value = asked;
     await look(asked, Number($('fov').value), BANDS[band] ? band : 2);
     if (!S.view) await openEntry(S.index.targets[0], S.index.targets[0].band, true); // something to look at meanwhile
   } else {
     const entry = asked ? findEntry(asked) : S.index.targets[0];
-    await openEntry(entry, BANDS[band] ? band : entry.band);
+    await openEntry(entry, BANDS[band] && !wantsSum ? band : entry.band);
+    if (wantsSum) await openSummed(entry);
   }
+  // first-visit onboarding: one dismissible tip, remembered for the session
+  try {
+    if (!document.body.classList.contains('embed') && !sessionStorage.getItem('nejma-onboarded')) {
+      notice('Welcome to <strong>nejma</strong>. The image plays one frame per SPHEREx visit — pause and step with the buttons under the picture. <em>Difference</em> (on the right) makes anything that moved or changed pop out; pick a detector, or sum all six, by wavelength. Type any object name or coordinates above to look somewhere else. <button id="onboard-ok" type="button">Got it</button>');
+      $('onboard-ok').addEventListener('click', () => { try { sessionStorage.setItem('nejma-onboarded', '1'); } catch { /* noop */ } notice(''); });
+    }
+  } catch { /* noop */ }
   buildGallery();
 }
 

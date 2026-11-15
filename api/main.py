@@ -36,10 +36,10 @@ MAX_PER_VISIT = 12
 MAX_RUNNING = 3  # IRSA is shared: keep our load on it small
 KEEP_SECONDS = 30 * 60  # finished jobs are kept this long, so a repeated question is answered at once
 
-app = FastAPI(title="Dokdo Gull live queries", docs_url=None, redoc_url=None)
+app = FastAPI(title="Nejma live queries", docs_url=None, redoc_url=None)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://cafe2913.github.io"],
+    allow_origins=["*"],
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_methods=["GET"],
 )
@@ -99,7 +99,12 @@ def run(job: dict, text: str, fov: float, band: int) -> None:
 
 @app.get("/")
 def about() -> dict:
-    return {"service": "Dokdo Gull live queries", "viewer": "https://cafe2913.github.io/dokdo-gull/", "code": "https://github.com/cafe2913/dokdo-gull"}
+    return {"service": "Nejma live queries"}
+
+
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok", "service": "Nejma live queries"}
 
 
 @app.get("/view")

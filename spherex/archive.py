@@ -24,7 +24,7 @@ from astropy.wcs import WCS, FITSFixedWarning
 
 IRSA = "https://irsa.ipac.caltech.edu/"
 TAP_URL = IRSA + "TAP/sync"
-USER_AGENT = "dokdo-gull/0.1 (NASA Space Apps 2026; https://github.com/cafe2913/dokdo-gull)"
+USER_AGENT = "nejma/1.0 (NASA Space Apps 2026)"
 
 # Wavelength range of each SPHEREx detector in micrometres, measured from the archive's plane table.
 DETECTORS = {

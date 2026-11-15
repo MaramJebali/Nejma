@@ -107,6 +107,11 @@ def health() -> dict:
     return {"status": "ok", "service": "Nejma live queries"}
 
 
+# On Vercel the function receives the full path (/api/health), while local runs use the bare
+# path (/health). Mount the same app under /api so both spellings answer.
+app.mount("/api", app)
+
+
 @app.get("/view")
 def start(q: str, fov: float = 0.1, band: int = 2) -> dict:
     text = q.strip()

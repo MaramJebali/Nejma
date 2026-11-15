@@ -32,19 +32,31 @@
 </head>
 <body>
 
+<!-- language switcher, top-left, available on the landing and in the viewer -->
+<div id="lang-switch" role="group" aria-label="Language">
+  <button type="button" data-lang="en" aria-pressed="true">EN</button>
+  <button type="button" data-lang="fr" aria-pressed="false">FR</button>
+  <button type="button" data-lang="es" aria-pressed="false">ES</button>
+  <button type="button" data-lang="ar" aria-pressed="false">AR</button>
+</div>
+
 <!-- ================= LANDING ================= -->
 <section id="landing" aria-label="nejma — introduction">
   <div id="landing-bg" aria-hidden="true"></div>
   <div class="landing-inner">
     <img src="assets/nejma-logo.png" alt="Nejma logo" class="landing-logo" onerror="this.remove()">
-    <p class="landing-eyebrow">NASA SPHEREx · a sky that moves</p>
+    <p class="landing-eyebrow" data-i18n="eyebrow">NASA SPHEREx · a sky that moves</p>
     <h1 class="landing-title">nejma</h1>
-    <p class="landing-sub">A little window on the infrared sky. Pick a star, a brown dwarf or any point you like, and watch NASA's SPHEREx images of it play back through time — so that anything that moved or changed stands out.</p>
+    <p class="landing-sub" data-i18n="sub">A little window on the infrared sky. Pick a star, a brown dwarf or any point you like, and watch NASA's SPHEREx images of it play back through time — so that anything that moved or changed stands out.</p>
     <div class="landing-actions">
-      <button id="start" class="landing-start" type="button">Start exploring</button>
+      <button id="start" class="landing-start" type="button" data-i18n="start">Start exploring</button>
+      <button id="guide-open" class="landing-start ghost" type="button" data-open="guide-modal" data-i18n="guide">How to use</button>
     </div>
-    <p class="landing-hint">Prefer to jump straight in? The five challenge targets are <a href="?target=R%20Dra&amp;mode=diff">already playing here</a>.</p>
+    <p class="landing-hint" data-i18n-html="hint">Prefer to jump straight in? The five challenge targets are <a href="?target=R%20Dra&amp;mode=diff">already playing here</a>.</p>
   </div>
+  <footer class="landing-foot">
+    <button id="credits-open" class="landing-start ghost small" type="button" data-open="credits-modal" data-i18n="creditsBtn">Credits &amp; acknowledgements</button>
+  </footer>
 </section>
 
 <!-- ================= UNIVERSE (the tool) ================= -->
@@ -221,11 +233,8 @@
   </main>
 
   <footer class="foot">
-  <h2 id="h-credits">Credits &amp; acknowledgements</h2>
-  <p>This publication makes use of data products from the Spectro-Photometer for the History of the Universe, Epoch of Reionization and Ices Explorer (SPHEREx), which is a joint project of the Jet Propulsion Laboratory and the California Institute of Technology, and is funded by the National Aeronautics and Space Administration. Spectral images are served by the NASA/IPAC Infrared Science Archive (IRSA).</p>
-  <p>This work has made use of data from the European Space Agency (ESA) mission Gaia (<a href="https://www.cosmos.esa.int/gaia">cosmos.esa.int/gaia</a>), processed by the Gaia Data Processing and Analysis Consortium (DPAC, <a href="https://www.cosmos.esa.int/web/gaia/dpac/consortium">cosmos.esa.int/web/gaia/dpac/consortium</a>). Funding for the DPAC has been provided by national institutions, in particular the institutions participating in the Gaia Multilateral Agreement.</p>
-  <p>This software uses source code created at the Centre de Données astronomiques de Strasbourg, France. Names and motions come from SIMBAD through the CDS Sesame name resolver; the sky atlas is Aladin Lite (CDS, Strasbourg Observatory, LGPL-3.0).</p>
-  <p>See <a href="https://github.com/MaramJebali/Nejma/blob/main/THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a> for third-party license information.</p>
+  <p><span data-i18n-html="footLine">Data: NASA SPHEREx spectral images (NASA/IPAC IRSA) · Gaia (ESA) · SIMBAD (CDS). <button type="button" class="tbtn" data-open="credits-modal">Credits &amp; acknowledgements</button>.</span>
+  <span data-i18n-html="contactLine">Found something in the sky? Reach the NASA/IPAC IRSA help desk: <a href="mailto:irsa@ipac.caltech.edu">irsa@ipac.caltech.edu</a>.</span></p>
 </footer>
 </div>
 
@@ -236,6 +245,37 @@
   window.A = A;
   window.dispatchEvent(new Event('aladin-ready'));
 </script>
+<!-- credits & acknowledgements modal (opened from the landing footer and the viewer footer) -->
+<div id="credits-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="credits-title">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" dir="ltr">
+    <button type="button" class="modal-close" data-close aria-label="Close">✕</button>
+    <h2 id="credits-title" data-i18n="creditsTitle">Credits &amp; acknowledgements</h2>
+    <p class="modal-note" data-i18n="officialNote">The notices below are quoted in their official (English) form, as the data providers require.</p>
+    <p>This publication makes use of data products from the Spectro-Photometer for the History of the Universe, Epoch of Reionization and Ices Explorer (SPHEREx), which is a joint project of the Jet Propulsion Laboratory and the California Institute of Technology, and is funded by the National Aeronautics and Space Administration. Spectral images are served by the NASA/IPAC Infrared Science Archive (IRSA).</p>
+    <p>This work has made use of data from the European Space Agency (ESA) mission Gaia (<a href="https://www.cosmos.esa.int/gaia">cosmos.esa.int/gaia</a>), processed by the Gaia Data Processing and Analysis Consortium (DPAC, <a href="https://www.cosmos.esa.int/web/gaia/dpac/consortium">cosmos.esa.int/web/gaia/dpac/consortium</a>). Funding for the DPAC has been provided by national institutions, in particular the institutions participating in the Gaia Multilateral Agreement.</p>
+    <p>This software uses source code created at the Centre de Données astronomiques de Strasbourg, France. Names and motions come from SIMBAD through the CDS Sesame name resolver; the sky atlas is Aladin Lite (CDS, Strasbourg Observatory, LGPL-3.0).</p>
+    <p data-i18n-html="thirdParty">See <a href="https://github.com/MaramJebali/Nejma/blob/main/THIRD_PARTY_NOTICES.md">THIRD_PARTY_NOTICES.md</a> for third-party license information.</p>
+  </div>
+</div>
+
+<!-- how-to-use guide modal -->
+<div id="guide-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="guide-title">
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-card" dir="ltr">
+    <button type="button" class="modal-close" data-close aria-label="Close">✕</button>
+    <h2 id="guide-title" data-i18n="guideTitle">How to use nejma</h2>
+    <p data-i18n="guideIntro">Nejma plays NASA SPHEREx images of one patch of sky in time order, so anything that moved or changed stands out. Four steps:</p>
+    <ol data-i18n-html="guideSteps">
+      <li><strong>Choose a place.</strong> Type an object name (for example <em>R Dra</em>) or coordinates (<em>248.167 66.755</em> or <em>16:32:40 +66:45:18</em>) in the search box, pick a field of view, and press <em>Look</em>.</li>
+      <li><strong>Watch time pass.</strong> The image plays one frame per SPHEREx visit (about every six months). Use <em>Back</em>/<em>Forward</em>, the speed slider, or the play button under the picture.</li>
+      <li><strong>Make movers pop.</strong> In the panel on the right, try <em>Blink two</em> (flip between visits) and <em>Difference</em> (one visit minus another). <em>All stacked</em> shows what stays still.</li>
+      <li><strong>Change the wavelength.</strong> Pick one of the six detectors on the wavelength ruler, or tick <em>Sum all six detectors</em> for the five saved targets.</li>
+    </ol>
+    <p class="modal-note" data-i18n-html="discovery">Found something you didn't expect — a mover, a flare, anything odd? Write to the NASA/IPAC IRSA help desk: <a href="mailto:irsa@ipac.caltech.edu">irsa@ipac.caltech.edu</a>. They can connect you with the SPHEREx science team.</p>
+  </div>
+</div>
+
 <script type="module" src="universe.js"></script>
 </body>
 </html>
